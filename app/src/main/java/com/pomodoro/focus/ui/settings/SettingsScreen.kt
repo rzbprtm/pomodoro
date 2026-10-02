@@ -135,7 +135,7 @@ fun SettingsScreen(
                             context.startActivity(PermissionHelper.usageStatsSettingsIntent())
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     PermissionRow(
                         title = "Overlay Permission",
                         description = "Untuk menampilkan layar blokir",
@@ -144,7 +144,7 @@ fun SettingsScreen(
                             context.startActivity(PermissionHelper.overlaySettingsIntent(context))
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     PermissionRow(
                         title = "Battery Optimization",
                         description = "Agar timer tidak mati di background",
@@ -155,7 +155,7 @@ fun SettingsScreen(
                             } catch (_: Exception) {}
                         }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     PermissionRow(
                         title = "Autostart (MIUI/HyperOS)",
                         description = "Agar layanan tetap berjalan setelah reboot",
