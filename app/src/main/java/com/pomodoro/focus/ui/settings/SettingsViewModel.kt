@@ -24,10 +24,16 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val focusMinutes = settingsDataStore.focusMinutes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 25)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 50)
 
     val restMinutes = settingsDataStore.restMinutes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+
+    val autoDnd = settingsDataStore.autoDnd
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val autostartConfirmed = settingsDataStore.autostartConfirmed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val whitelistPackages = settingsDataStore.whitelistPackages
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf("com.whatsapp"))
@@ -65,6 +71,14 @@ class SettingsViewModel(
 
     fun setRestMinutes(m: Int) {
         viewModelScope.launch { settingsDataStore.setRestMinutes(m) }
+    }
+
+    fun toggleAutoDnd(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setAutoDnd(enabled) }
+    }
+
+    fun setAutostartConfirmed(confirmed: Boolean) {
+        viewModelScope.launch { settingsDataStore.setAutostartConfirmed(confirmed) }
     }
 
     fun toggleWhitelist(packageName: String, enabled: Boolean) {

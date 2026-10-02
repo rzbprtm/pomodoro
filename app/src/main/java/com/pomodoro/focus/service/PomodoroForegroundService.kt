@@ -8,22 +8,10 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.pomodoro.focus.FocusForgeApp
 import com.pomodoro.focus.MainActivity
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 
 class PomodoroForegroundService : Service() {
 
     private val binder = LocalBinder()
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-
-    private val _remainingMs = MutableStateFlow(0L)
-    val remainingMs: StateFlow<Long> = _remainingMs
-
-    private val _isRunning = MutableStateFlow(false)
-    val isRunning: StateFlow<Boolean> = _isRunning
-
-    private var timerJob: Job? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): PomodoroForegroundService = this@PomodoroForegroundService
@@ -34,51 +22,42 @@ class PomodoroForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val durationMs = intent.getLongExtra(EXTRA_DURATION_MS, 25 * 60 * 1000L)
-                startTimer(durationMs)
+                val phase = intent.getStringExtra(EXTRA_PHASE) ?: "Fokus"
+                val remainingMs = intent.getLongExtra(EXTRA_REMAINING_MS, 50 * 60 * 1000L)
+                val notification = buildNotification(phase, remainingMs)
+                startForeground(NOTIFICATION_ID, notification)
             }
-            ACTION_STOP -> stopTimer()
+            ACTION_UPDATE -> {
+                val phase = intent.getStringExtra(EXTRA_PHASE) ?: "Fokus"
+                val remainingMs = intent.getLongExtra(EXTRA_REMAINING_MS, 0L)
+                updateNotification(phase, remainingMs)
+            }
+            ACTION_STOP -> {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
         return START_STICKY
     }
 
-    private fun startTimer(durationMs: Long) {
-        _remainingMs.value = durationMs
-        _isRunning.value = true
-
-        val notification = buildNotification(durationMs)
-        startForeground(NOTIFICATION_ID, notification)
-
-        timerJob?.cancel()
-        timerJob = scope.launch {
-            while (_remainingMs.value > 0 && _isRunning.value) {
-                delay(1000)
-                _remainingMs.value = (_remainingMs.value - 1000).coerceAtLeast(0)
-                updateNotification(_remainingMs.value)
-            }
-        }
-    }
-
-    private fun stopTimer() {
-        timerJob?.cancel()
-        _isRunning.value = false
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
-    private fun buildNotification(remainingMs: Long): Notification {
+    private fun buildNotification(phase: String, remainingMs: Long): Notification {
         val minutes = (remainingMs / 1000 / 60).toInt()
         val seconds = ((remainingMs / 1000) % 60).toInt()
 
         val pendingIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val title = if (phase == "REST") "FocusForge - Istirahat \u2615" else "FocusForge - Fokus \uD83C\uDF33"
+        val text = "%02d:%02d tersisa".format(minutes, seconds)
+
         return NotificationCompat.Builder(this, FocusForgeApp.CHANNEL_ID)
-            .setContentTitle("FocusForge - Fokus")
-            .setContentText("%02d:%02d tersisa".format(minutes, seconds))
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -86,33 +65,43 @@ class PomodoroForegroundService : Service() {
             .build()
     }
 
-    private fun updateNotification(remainingMs: Long) {
-        val notification = buildNotification(remainingMs)
+    private fun updateNotification(phase: String, remainingMs: Long) {
+        val notification = buildNotification(phase, remainingMs)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, notification)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        timerJob?.cancel()
-        scope.cancel()
-    }
-
     companion object {
         const val ACTION_START = "com.pomodoro.focus.START"
+        const val ACTION_UPDATE = "com.pomodoro.focus.UPDATE"
         const val ACTION_STOP = "com.pomodoro.focus.STOP"
-        const val EXTRA_DURATION_MS = "duration_ms"
+        const val EXTRA_PHASE = "extra_phase"
+        const val EXTRA_REMAINING_MS = "extra_remaining_ms"
         const val NOTIFICATION_ID = 1001
 
-        fun startIntent(context: Context, durationMs: Long): Intent =
-            Intent(context, PomodoroForegroundService::class.java).apply {
+        fun start(context: Context, phase: String, remainingMs: Long) {
+            val intent = Intent(context, PomodoroForegroundService::class.java).apply {
                 action = ACTION_START
-                putExtra(EXTRA_DURATION_MS, durationMs)
+                putExtra(EXTRA_PHASE, phase)
+                putExtra(EXTRA_REMAINING_MS, remainingMs)
             }
+            context.startForegroundService(intent)
+        }
 
-        fun stopIntent(context: Context): Intent =
-            Intent(context, PomodoroForegroundService::class.java).apply {
+        fun update(context: Context, phase: String, remainingMs: Long) {
+            val intent = Intent(context, PomodoroForegroundService::class.java).apply {
+                action = ACTION_UPDATE
+                putExtra(EXTRA_PHASE, phase)
+                putExtra(EXTRA_REMAINING_MS, remainingMs)
+            }
+            context.startService(intent)
+        }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, PomodoroForegroundService::class.java).apply {
                 action = ACTION_STOP
             }
+            context.startService(intent)
+        }
     }
 }

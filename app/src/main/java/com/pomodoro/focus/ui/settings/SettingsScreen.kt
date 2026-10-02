@@ -12,7 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.pomodoro.focus.util.PermissionHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,9 +28,34 @@ fun SettingsScreen(
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val focusMinutes by viewModel.focusMinutes.collectAsState()
     val restMinutes by viewModel.restMinutes.collectAsState()
+    val autoDnd by viewModel.autoDnd.collectAsState()
+    val autostartConfirmed by viewModel.autostartConfirmed.collectAsState()
     val apps by viewModel.installedApps.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Live permission states
+    var hasUsageStats by remember { mutableStateOf(PermissionHelper.hasUsageStatsPermission(context)) }
+    var hasOverlay by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
+    var hasBatteryOpt by remember { mutableStateOf(PermissionHelper.isBatteryOptimizationIgnored(context)) }
+    var hasDndPolicy by remember { mutableStateOf(PermissionHelper.hasNotificationPolicyPermission(context)) }
+
+    // Auto refresh permissions when returning to app (ON_RESUME)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasUsageStats = PermissionHelper.hasUsageStatsPermission(context)
+                hasOverlay = PermissionHelper.hasOverlayPermission(context)
+                hasBatteryOpt = PermissionHelper.isBatteryOptimizationIgnored(context)
+                hasDndPolicy = PermissionHelper.hasNotificationPolicyPermission(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -80,7 +109,7 @@ fun SettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Timer",
+                text = "Waktu Pomodoro Default",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -96,8 +125,8 @@ fun SettingsScreen(
                     Slider(
                         value = focusMinutes.toFloat(),
                         onValueChange = { viewModel.setFocusMinutes(it.toInt()) },
-                        valueRange = 5f..60f,
-                        steps = 10
+                        valueRange = 5f..120f,
+                        steps = 22
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text("Durasi Istirahat: $restMinutes menit", style = MaterialTheme.typography.bodyLarge)
@@ -105,7 +134,48 @@ fun SettingsScreen(
                         value = restMinutes.toFloat(),
                         onValueChange = { viewModel.setRestMinutes(it.toInt()) },
                         valueRange = 1f..30f,
-                        steps = 5
+                        steps = 28
+                    )
+                }
+            }
+        }
+
+        // Focus & DND Mode
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Mode Senyap (Do Not Disturb)",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Senyapkan Notifikasi saat Fokus",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = "Otomatis mengheningkan suara & notifikasi aplikasi lain selama fokus, dan kembali normal saat istirahat.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoDnd,
+                        onCheckedChange = { viewModel.toggleAutoDnd(it) }
                     )
                 }
             }
@@ -115,7 +185,7 @@ fun SettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Izin Aplikasi",
+                text = "Izin & Stabilitas Sistem (HyperOS / Xiaomi)",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -127,47 +197,91 @@ fun SettingsScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // Usage Access
                     PermissionRow(
                         title = "Usage Access",
-                        description = "Untuk mendeteksi aplikasi foreground",
-                        isGranted = PermissionHelper.hasUsageStatsPermission(context),
+                        description = "Mendeteksi aplikasi sosmed / game yang sedang dibuka",
+                        isGranted = hasUsageStats,
                         onClick = {
                             context.startActivity(PermissionHelper.usageStatsSettingsIntent())
                         }
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Overlay
                     PermissionRow(
-                        title = "Overlay Permission",
-                        description = "Untuk menampilkan layar blokir",
-                        isGranted = PermissionHelper.hasOverlayPermission(context),
+                        title = "Tampil di Atas Aplikasi Lain",
+                        description = "Izin memunculkan peringatan saat membuka aplikasi terlarang",
+                        isGranted = hasOverlay,
                         onClick = {
                             context.startActivity(PermissionHelper.overlaySettingsIntent(context))
                         }
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Battery Optimization (Real check)
                     PermissionRow(
-                        title = "Battery Optimization",
-                        description = "Agar timer tidak mati di background",
-                        isGranted = false, // Can't check easily
+                        title = "Penghemat Baterai: Tanpa Pembatasan",
+                        description = "Wajib disetel 'Tidak Ada Pembatasan' agar timer tidak mati di Xiaomi",
+                        isGranted = hasBatteryOpt,
                         onClick = {
                             try {
                                 context.startActivity(PermissionHelper.batteryOptimizationIntent(context))
+                            } catch (_: Exception) {
+                                context.startActivity(PermissionHelper.appInfoIntent(context))
+                            }
+                        }
+                    )
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // DND Policy Access
+                    PermissionRow(
+                        title = "Akses Jangan Ganggu (DND)",
+                        description = "Mengizinkan aplikasi mematikan notifikasi saat sesi fokus",
+                        isGranted = hasDndPolicy,
+                        onClick = {
+                            try {
+                                context.startActivity(PermissionHelper.notificationPolicySettingsIntent())
                             } catch (_: Exception) {}
                         }
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
-                    PermissionRow(
-                        title = "Autostart (MIUI/HyperOS)",
-                        description = "Agar layanan tetap berjalan setelah reboot",
-                        isGranted = false,
-                        onClick = {
-                            try {
-                                context.startActivity(PermissionHelper.miuiAutostartIntent())
-                            } catch (_: Exception) {
-                                // Not MIUI device
+
+                    // Autostart Xiaomi / HyperOS
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Mulai Otomatis (Autostart Xiaomi)",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Aktifkan opsi 'Autostart' di pengaturan aplikasi Xiaomi agar layanan tidak dimatikan paksa.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        context.startActivity(PermissionHelper.miuiAutostartIntent())
+                                    } catch (_: Exception) {
+                                        context.startActivity(PermissionHelper.appInfoIntent(context))
+                                    }
+                                },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Buka Pengaturan Autostart HP")
                             }
                         }
-                    )
+                        Checkbox(
+                            checked = autostartConfirmed,
+                            onCheckedChange = { viewModel.setAutostartConfirmed(it) }
+                        )
+                    }
                 }
             }
         }
@@ -176,7 +290,7 @@ fun SettingsScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Whitelist Aplikasi",
+                text = "Whitelist Aplikasi (Diizinkan saat Fokus)",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -185,7 +299,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Cari aplikasi...") },
+                placeholder = { Text("Cari aplikasi terpasang...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -248,8 +362,9 @@ fun PermissionRow(
         if (isGranted) {
             Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = "Granted",
-                tint = MaterialTheme.colorScheme.primary
+                contentDescription = "Diizinkan",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
             )
         } else {
             TextButton(onClick = onClick) {

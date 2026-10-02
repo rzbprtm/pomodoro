@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return when {
                     modelClass.isAssignableFrom(TimerViewModel::class.java) ->
-                        TimerViewModel(application, repository) as T
+                        TimerViewModel(application, repository, settingsDataStore) as T
                     modelClass.isAssignableFrom(TaskViewModel::class.java) ->
                         TaskViewModel(application, repository) as T
                     modelClass.isAssignableFrom(CalendarViewModel::class.java) ->
@@ -63,6 +63,12 @@ class MainActivity : ComponentActivity() {
         val calendarVm = ViewModelProvider(this, factory)[CalendarViewModel::class.java]
         val settingsVm = ViewModelProvider(this, factory)[SettingsViewModel::class.java]
 
+        val navigateTo = intent.getStringExtra("navigate_to")
+        val initialRoute = if (navigateTo == "settings")
+            com.pomodoro.focus.ui.navigation.Screen.Settings.route
+        else
+            com.pomodoro.focus.ui.navigation.Screen.Timer.route
+
         setContent {
             val isDarkMode by settingsVm.isDarkMode.collectAsState()
 
@@ -72,7 +78,8 @@ class MainActivity : ComponentActivity() {
                     taskViewModel = taskVm,
                     calendarViewModel = calendarVm,
                     settingsViewModel = settingsVm,
-                    isDarkTheme = isDarkMode
+                    isDarkTheme = isDarkMode,
+                    initialRoute = initialRoute
                 )
             }
         }

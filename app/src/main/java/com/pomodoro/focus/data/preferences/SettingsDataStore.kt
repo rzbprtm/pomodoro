@@ -15,14 +15,18 @@ class SettingsDataStore(private val context: Context) {
         val FOCUS_MINUTES = intPreferencesKey("focus_minutes")
         val REST_MINUTES = intPreferencesKey("rest_minutes")
         val WHITELIST_PACKAGES = stringSetPreferencesKey("whitelist_packages")
+        val AUTO_DND = booleanPreferencesKey("auto_dnd")
+        val AUTOSTART_CONFIRMED = booleanPreferencesKey("autostart_confirmed")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { it[DARK_MODE] ?: true }
-    val focusMinutes: Flow<Int> = context.dataStore.data.map { it[FOCUS_MINUTES] ?: 25 }
-    val restMinutes: Flow<Int> = context.dataStore.data.map { it[REST_MINUTES] ?: 5 }
+    val focusMinutes: Flow<Int> = context.dataStore.data.map { it[FOCUS_MINUTES] ?: 50 }
+    val restMinutes: Flow<Int> = context.dataStore.data.map { it[REST_MINUTES] ?: 10 }
     val whitelistPackages: Flow<Set<String>> = context.dataStore.data.map {
         it[WHITELIST_PACKAGES] ?: setOf("com.whatsapp")
     }
+    val autoDnd: Flow<Boolean> = context.dataStore.data.map { it[AUTO_DND] ?: true }
+    val autostartConfirmed: Flow<Boolean> = context.dataStore.data.map { it[AUTOSTART_CONFIRMED] ?: false }
 
     suspend fun setDarkMode(enabled: Boolean) {
         context.dataStore.edit { it[DARK_MODE] = enabled }
@@ -38,5 +42,13 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setWhitelistPackages(packages: Set<String>) {
         context.dataStore.edit { it[WHITELIST_PACKAGES] = packages }
+    }
+
+    suspend fun setAutoDnd(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_DND] = enabled }
+    }
+
+    suspend fun setAutostartConfirmed(confirmed: Boolean) {
+        context.dataStore.edit { it[AUTOSTART_CONFIRMED] = confirmed }
     }
 }

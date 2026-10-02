@@ -28,11 +28,21 @@ fun AppNavigation(
     taskViewModel: TaskViewModel,
     calendarViewModel: CalendarViewModel,
     settingsViewModel: SettingsViewModel,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    initialRoute: String = Screen.Timer.route
 ) {
     val navController = rememberNavController()
     val currentBackStack by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStack?.destination?.route
+
+    LaunchedEffect(initialRoute) {
+        if (initialRoute == Screen.Settings.route) {
+            navController.navigate(Screen.Settings.route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     Scaffold(
         topBar = {

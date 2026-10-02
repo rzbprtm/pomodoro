@@ -29,7 +29,16 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
+          tag_name: v1.1.0
+          name: "FocusForge v1.1.0 (Digital Wellbeing Blocker & DND Mode)"
+          body: |
+            ### Pembaruan v1.1.0:
+            - **Digital Wellbeing Blocker**: Pop-up pengingat instan saat aplikasi terlarang dibuka, lengkap dengan tombol "Kembali ke FocusForge" dan "Kelola Whitelist".
+            - **Do Not Disturb (DND) Otomatis**: Notifikasi aplikasi lain otomatis mati saat fokus, dan otomatis nyala normal lagi saat waktu istirahat (Rest) tiba.
+            - **Sinkronisasi Timer Instan**: Slider waktu di Pengaturan & dialog Hero Timer langsung tersinkron secara real-time.
+            - **Hero Timer Interaktif**: Ketuk lingkaran timer saat siap untuk langsung ubah durasi (Default: 50m Fokus / 10m Istirahat).
+            - **Animasi Timer Forest**: Animasi denyut halus (breathing pulse) & glow saat fokus, dan animasi santai bouncing emoji dengan pesan "Chill dulu bro!" saat istirahat.
+            - **Live Permission Check**: Status Penghemat Baterai (Tanpa Pembatasan) & DND otomatis tercentang hijau secara real-time saat kembali dari pengaturan HP.
           files: app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,9 +1,11 @@
 package com.pomodoro.focus.util
 
 import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 
@@ -22,6 +24,29 @@ object PermissionHelper {
     fun hasOverlayPermission(context: Context): Boolean =
         Settings.canDrawOverlays(context)
 
+    fun isBatteryOptimizationIgnored(context: Context): Boolean {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun hasNotificationPolicyPermission(context: Context): Boolean {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        return nm.isNotificationPolicyAccessGranted
+    }
+
+    fun setDndMode(context: Context, enable: Boolean) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (nm.isNotificationPolicyAccessGranted) {
+            try {
+                if (enable) {
+                    nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+                } else {
+                    nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     fun usageStatsSettingsIntent(): Intent =
         Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
 
@@ -36,9 +61,14 @@ object PermissionHelper {
             data = Uri.parse("package:${context.packageName}")
         }
 
-    /**
-     * MIUI/HyperOS Autostart intent. Not guaranteed on all ROMs.
-     */
+    fun appInfoIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+
+    fun notificationPolicySettingsIntent(): Intent =
+        Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+
     fun miuiAutostartIntent(): Intent =
         Intent().apply {
             setClassName(
