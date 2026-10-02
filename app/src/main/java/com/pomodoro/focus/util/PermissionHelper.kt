@@ -34,6 +34,26 @@ object PermissionHelper {
         return nm.isNotificationPolicyAccessGranted
     }
 
+    fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        val expectedServiceName = "${context.packageName}/${com.pomodoro.focus.service.FocusAccessibilityService::class.java.canonicalName}"
+        val enabledServices = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServices)
+        while (colonSplitter.hasNext()) {
+            val componentName = colonSplitter.next()
+            if (componentName.equals(expectedServiceName, ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun accessibilitySettingsIntent(): Intent =
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+
     fun setDndMode(context: Context, enable: Boolean) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.isNotificationPolicyAccessGranted) {

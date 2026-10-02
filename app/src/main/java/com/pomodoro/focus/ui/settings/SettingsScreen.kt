@@ -36,6 +36,7 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Live permission states
+    var hasAccessibility by remember { mutableStateOf(PermissionHelper.isAccessibilityServiceEnabled(context)) }
     var hasUsageStats by remember { mutableStateOf(PermissionHelper.hasUsageStatsPermission(context)) }
     var hasOverlay by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var hasBatteryOpt by remember { mutableStateOf(PermissionHelper.isBatteryOptimizationIgnored(context)) }
@@ -45,6 +46,7 @@ fun SettingsScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                hasAccessibility = PermissionHelper.isAccessibilityServiceEnabled(context)
                 hasUsageStats = PermissionHelper.hasUsageStatsPermission(context)
                 hasOverlay = PermissionHelper.hasOverlayPermission(context)
                 hasBatteryOpt = PermissionHelper.isBatteryOptimizationIgnored(context)
@@ -197,6 +199,17 @@ fun SettingsScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // Accessibility Service (Critical Blocker)
+                    PermissionRow(
+                        title = "Layanan Aksesibilitas (App Blocker)",
+                        description = "Izin utama untuk memblokir aplikasi lain secara instan saat sesi fokus (Pilih FocusForge > Aktifkan)",
+                        isGranted = hasAccessibility,
+                        onClick = {
+                            context.startActivity(PermissionHelper.accessibilitySettingsIntent())
+                        }
+                    )
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+
                     // Usage Access
                     PermissionRow(
                         title = "Usage Access",

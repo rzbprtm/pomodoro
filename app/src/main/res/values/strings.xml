@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FocusForge</string>
+    <string name="accessibility_service_desc">Layanan ini digunakan oleh FocusForge untuk mendeteksi aplikasi yang dibuka dan memblokir aplikasi terlarang selama sesi fokus berjalan.</string>
 </resources>

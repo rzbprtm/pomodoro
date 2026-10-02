@@ -7,7 +7,7 @@ import com.pomodoro.focus.data.local.entity.SessionEntity
 import com.pomodoro.focus.data.local.entity.TaskEntity
 import com.pomodoro.focus.data.preferences.SettingsDataStore
 import com.pomodoro.focus.data.repository.TaskRepository
-import com.pomodoro.focus.service.AppMonitorEngine
+import com.pomodoro.focus.service.FocusStateManager
 import com.pomodoro.focus.service.PomodoroForegroundService
 import com.pomodoro.focus.util.PermissionHelper
 import kotlinx.coroutines.Job
@@ -42,8 +42,6 @@ class TimerViewModel(
     private var timerJob: Job? = null
     private var sessionEntity: SessionEntity? = null
 
-    private val monitorEngine = AppMonitorEngine(application)
-    private var currentWhitelist: Set<String> = emptySet()
     private var isAutoDndEnabled: Boolean = true
 
     val todoTasks = repository.getTodoTasks()
@@ -73,8 +71,7 @@ class TimerViewModel(
 
         viewModelScope.launch {
             settingsDataStore.whitelistPackages.collect { pkgs ->
-                currentWhitelist = pkgs
-                monitorEngine.setWhitelist(pkgs)
+                FocusStateManager.updateWhitelist(pkgs)
             }
         }
 
@@ -113,12 +110,11 @@ class TimerViewModel(
             )
         }
 
+        // Activate Accessibility App Blocker instantly
+        FocusStateManager.setFocusActive(true)
+
         // Start Foreground Service
         PomodoroForegroundService.start(getApplication(), "FOCUS", totalMs)
-
-        // Start strict app monitor (blocking)
-        monitorEngine.setWhitelist(currentWhitelist)
-        monitorEngine.start(viewModelScope)
 
         // Enable DND if permitted
         if (isAutoDndEnabled) {
@@ -150,8 +146,8 @@ class TimerViewModel(
             )
         }
 
-        // Disable app monitor (free app usage during rest)
-        monitorEngine.stop()
+        // Disable app blocker (100% free app access during rest!)
+        FocusStateManager.setFocusActive(false)
 
         // Turn off DND
         PermissionHelper.setDndMode(getApplication(), false)
@@ -187,7 +183,7 @@ class TimerViewModel(
         when (current.phase) {
             TimerPhase.FOCUS -> {
                 // Focus complete -> Stop blocking
-                monitorEngine.stop()
+                FocusStateManager.setFocusActive(false)
                 PermissionHelper.setDndMode(getApplication(), false)
 
                 viewModelScope.launch {
@@ -196,7 +192,7 @@ class TimerViewModel(
                         repository.updateTaskFocusTime(it.id, current.totalMs)
                     }
                 }
-                // Transition to rest mode (auto ready)
+                // Transition to rest mode
                 val restMs = current.restMinutes * 60 * 1000L
                 _state.update {
                     it.copy(
@@ -227,7 +223,7 @@ class TimerViewModel(
 
     fun emergencyExit() {
         timerJob?.cancel()
-        monitorEngine.stop()
+        FocusStateManager.setFocusActive(false)
         PermissionHelper.setDndMode(getApplication(), false)
         PomodoroForegroundService.stop(getApplication())
 
@@ -258,7 +254,7 @@ class TimerViewModel(
 
     fun completeTarget() {
         timerJob?.cancel()
-        monitorEngine.stop()
+        FocusStateManager.setFocusActive(false)
         PermissionHelper.setDndMode(getApplication(), false)
         PomodoroForegroundService.stop(getApplication())
 
@@ -293,7 +289,7 @@ class TimerViewModel(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
-        monitorEngine.stop()
+        FocusStateManager.setFocusActive(false)
         PermissionHelper.setDndMode(getApplication(), false)
         PomodoroForegroundService.stop(getApplication())
     }
